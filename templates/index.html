@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduGenie: Google Gemini Powered Learning Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Welcome to EduGenie 🎓✨</h1>
+            <p>Your personal AI tutor for learning support!</p>
+        </header>
+
+        <!-- Q&A Module -->
+        <section class="card">
+            <form id="qaForm">
+                <label for="question"><strong>Ask EduGenie a Question:</strong></label><br><br>
+                <div class="input-row">
+                    <input type="text" id="question" placeholder="Why is the sky blue?" required>
+                    <button type="submit" id="qaBtn">Get Answer</button>
+                </div>
+            </form>
+            <div id="qaResult" class="output"></div>
+        </section>
+
+        <!-- Explanation Module -->
+        <section class="card">
+            <form id="explainForm">
+                <label for="topic"><strong>Need an Explanation?</strong></label><br><br>
+                <div class="input-row">
+                    <input type="text" id="topic" placeholder="Photosynthesis" required>
+                    <button type="submit" id="explainBtn">Explain</button>
+                </div>
+            </form>
+            <div id="explanationResult" class="output"></div>
+        </section>
+
+        <!-- Summarization Module -->
+        <section class="card">
+            <form id="summaryForm">
+                <label for="summaryText"><strong>Summarize a Paragraph:</strong></label><br><br>
+                <div class="input-row">
+                    <textarea id="summaryText" placeholder="Paste long content to summarize" rows="3" required></textarea>
+                    <button type="submit" id="summaryBtn">Summarize</button>
+                </div>
+            </form>
+            <div id="summaryResult" class="output"></div>
+        </section>
+
+        <!-- Quiz Generation Module -->
+        <section class="card">
+            <form id="quizForm">
+                <label for="quizText"><strong>Generate a Quiz:</strong></label><br><br>
+                <div class="input-row">
+                    <input type="text" id="quizText" placeholder="Solar System" required>
+                    <button type="submit" id="quizBtn">Generate Quiz</button>
+                </div>
+            </form>
+            <div id="quizResult" class="output"></div>
+        </section>
+
+        <!-- Learning Recommendations Module -->
+        <section class="card">
+            <form id="recommendForm">
+                <label for="recommendTopic"><strong>Get Learning Recommendations:</strong></label><br><br>
+                <div class="input-row">
+                    <input type="text" id="recommendTopic" placeholder="e.g. Linear Regression" required>
+                    <button type="submit" id="recommendBtn">Get Recommendations</button>
+                </div>
+            </form>
+            <div id="recommendResult" class="output"></div>
+        </section>
+    </div>
+
+    <script>
+        // Helper function for rendering spinners
+        function showLoading(elementId) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.innerHTML = '<div class="loading"><div class="spinner"></div><span>Thinking... please wait...</span></div>';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.toString().replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let html = escapeHtml(text);
+            // Bold
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            // Italic
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            // Line breaks
+            html = html.replace(/\n\n/g, '<br><br>');
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        // 1. Q&A Form Handler
+        document.getElementById('qaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const question = document.getElementById('question').value.trim();
+            if (!question) return;
+
+            showLoading('qaResult');
+            const btn = document.getElementById('qaBtn');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/qa?question=${encodeURIComponent(question)}`);
+                const data = await response.json();
+                const resEl = document.getElementById('qaResult');
+                resEl.style.display = 'block';
+                if (data.answer) {
+                    resEl.innerHTML = `<h4>Answer:</h4><p>${formatMarkdown(data.answer)}</p>`;
+                } else if (data.error) {
+                    resEl.innerHTML = `<p class="error-msg">⚠️ ${escapeHtml(data.error)}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('qaResult').innerHTML = `<p class="error-msg">⚠️ Error connecting to server: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // 2. Explanation Form Handler
+        document.getElementById('explainForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const topic = document.getElementById('topic').value.trim();
+            if (!topic) return;
+
+            showLoading('explanationResult');
+            const btn = document.getElementById('explainBtn');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/explain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic })
+                });
+                const data = await response.json();
+                const resEl = document.getElementById('explanationResult');
+                resEl.style.display = 'block';
+                if (data.explanation) {
+                    resEl.innerHTML = `<h4>Explanation:</h4><p>${formatMarkdown(data.explanation)}</p>`;
+                } else if (data.error) {
+                    resEl.innerHTML = `<p class="error-msg">⚠️ ${escapeHtml(data.error)}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('explanationResult').innerHTML = `<p class="error-msg">⚠️ Error connecting to server: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // 3. Summarization Form Handler
+        document.getElementById('summaryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = document.getElementById('summaryText').value.trim();
+            if (!text) return;
+
+            showLoading('summaryResult');
+            const btn = document.getElementById('summaryBtn');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+                const resEl = document.getElementById('summaryResult');
+                resEl.style.display = 'block';
+                if (data.summary) {
+                    resEl.innerHTML = `<h4>Summary:</h4><p>${formatMarkdown(data.summary)}</p>`;
+                } else if (data.error) {
+                    resEl.innerHTML = `<p class="error-msg">⚠️ ${escapeHtml(data.error)}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('summaryResult').innerHTML = `<p class="error-msg">⚠️ Error connecting to server: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // 4. Quiz Form Handler
+        document.getElementById('quizForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = document.getElementById('quizText').value.trim();
+            if (!text) return;
+
+            showLoading('quizResult');
+            const btn = document.getElementById('quizBtn');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const data = await response.json();
+                const resEl = document.getElementById('quizResult');
+                resEl.style.display = 'block';
+
+                if (Array.isArray(data.quiz) && data.quiz.length > 0 && !data.quiz[0].error) {
+                    let html = `<h4>Quiz:</h4>`;
+                    data.quiz.forEach((q, qIndex) => {
+                        const qNum = qIndex + 1;
+                        html += `
+                        <div class="quiz-item" id="q-block-${qNum}">
+                            <p class="quiz-question"><strong>Q${qNum}:</strong> ${escapeHtml(q.question)}</p>
+                            <div class="quiz-options">
+                                ${q.options.map((opt, optIdx) => `
+                                    <label class="quiz-option-label">
+                                        <input type="radio" name="quiz_q_${qNum}" value="${escapeHtml(opt)}">
+                                        <span>${escapeHtml(opt)}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                            <button type="button" class="btn-check" onclick="checkAnswer(${qNum}, '${escapeHtml(q.answer).replace(/'/g, "\\'")}')">Check Answer</button>
+                            <div id="feedback-${qNum}" class="quiz-feedback"></div>
+                        </div>`;
+                    });
+                    resEl.innerHTML = html;
+                } else {
+                    const errDetail = (data.quiz && data.quiz[0] && data.quiz[0].error) || data.error || 'Failed to generate quiz.';
+                    resEl.innerHTML = `<p class="error-msg">⚠️ ${escapeHtml(errDetail)}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('quizResult').innerHTML = `<p class="error-msg">⚠️ Error connecting to server: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        // Check Answer function for Quizzes
+        window.checkAnswer = function(qNum, correctAnswer) {
+            const selected = document.querySelector(`input[name="quiz_q_${qNum}"]:checked`);
+            const feedbackEl = document.getElementById(`feedback-${qNum}`);
+            
+            if (!selected) {
+                feedbackEl.className = 'quiz-feedback warning';
+                feedbackEl.innerHTML = '⚠️ Please select an option first!';
+                feedbackEl.style.display = 'block';
+                return;
+            }
+
+            if (selected.value.trim() === correctAnswer.trim()) {
+                feedbackEl.className = 'quiz-feedback correct';
+                feedbackEl.innerHTML = '✅ Correct!';
+            } else {
+                feedbackEl.className = 'quiz-feedback incorrect';
+                feedbackEl.innerHTML = `❌ Incorrect. Correct answer: <strong>${escapeHtml(correctAnswer)}</strong>`;
+            }
+            feedbackEl.style.display = 'block';
+        };
+
+        // 5. Learning Recommendations Form Handler
+        document.getElementById('recommendForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const topic = document.getElementById('recommendTopic').value.trim();
+            if (!topic) return;
+
+            showLoading('recommendResult');
+            const btn = document.getElementById('recommendBtn');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/learn/recommendations?topic=${encodeURIComponent(topic)}`);
+                const data = await response.json();
+                const resEl = document.getElementById('recommendResult');
+                resEl.style.display = 'block';
+                if (data.recommendation) {
+                    resEl.innerHTML = `<h4>Learning Recommendations for "${escapeHtml(data.topic)}":</h4><div class="recommendation-content">${formatMarkdown(data.recommendation)}</div>`;
+                } else if (data.error) {
+                    resEl.innerHTML = `<p class="error-msg">⚠️ ${escapeHtml(data.error)}</p>`;
+                }
+            } catch (err) {
+                document.getElementById('recommendResult').innerHTML = `<p class="error-msg">⚠️ Error connecting to server: ${escapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
